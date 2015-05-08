@@ -102,14 +102,14 @@ class NoiseAnalyst():
         self.dragStart = None
         self.fig = plt.figure()
 
-        self.tmp = None
-    # ------------------------------------------- Processing
+        self.tmp = self.img
+    # ------------------------------------- Image processing
     def show_dft(self):
         """
         Return the spectrum in log scale.
         """
-        h, w = self.img.shape[:2]
-        realInput = self.img.astype(np.float64)
+        h, w = self.tmp.shape[:2]
+        realInput = self.tmp.astype(np.float64)
         # perform an optimally sized dft
         dft_M = cv2.getOptimalDFTSize(w)
         dft_N = cv2.getOptimalDFTSize(h)
@@ -150,7 +150,7 @@ class NoiseAnalyst():
                 break
         cv2.destroyWindow(self.test_winname)
 
-    def remove_vertical_sin_noise(self, period=40):
+    def remove_vertical_sin_noise(self):
         A = 12
         amp = 10
         pha = 0
@@ -172,9 +172,29 @@ class NoiseAnalyst():
                 break
             if ch == 97:
                 self.img = self.tmp
-                self.tmp = None
                 break
-        cv2.destroyWindow(self.test_winname)
+        cv2.destroyAllWindows()
+
+    def apply_gaussian_filter(self):
+        """
+        Apply gaussion low pass filter.
+        """
+        max_ksize = min(self.img.shape[0], self.img.shape[1])
+        cv2.imshow(self.test_winname, self.img)
+        cv2.imshow(self.ctrl_panel_winname, np.zeros((100, 600), np.uint8))
+        cv2.createTrackbar(
+            "kize=2n+1:", self.ctrl_panel_winname, 3, (max_ksize - 1) / 2, self.update_gaussian_filter_win)
+        self.update_gaussian_filter_win()
+        print "Reducing high frequency noise, Press a to accept"
+        while True:
+            ch = cv2.waitKey()
+            if ch == 27:
+                break
+            if ch == 97:
+                self.img = self.tmp
+                break
+        cv2.destroyAllWindows()
+
 
     def get_sine_img(self, A, B, amp, pha):
         """
@@ -188,6 +208,7 @@ class NoiseAnalyst():
             for j in range(w):
                 sinimg[i, j] = np.uint8(amp * (sin(A * i + B * j + pha) + 1))
         return sinimg
+
 
     def get_vertical_sin_image(self, A, amp, pha):
         """
@@ -288,8 +309,7 @@ class NoiseAnalyst():
         draw_str(dst, (10,40), s2)
         cv2.imshow(self.test_winname, dst)
 
-
-    def update_sine_win(self):
+    def update_sine_win(self, dummy=None):
         """
         Update output image with trackbar.
         The direction is user defined.
@@ -297,6 +317,15 @@ class NoiseAnalyst():
         TODO: speed up self.get_sine_img()
         """
         pass
+
+    def update_gaussian_filter_win(self, dummy=None):
+        ks = cv2.getTrackbarPos("kize=2n+1:",
+                                self.ctrl_panel_winname)
+        kernel = cv2.getGaussianKernel(ks*2+1, 0)
+        dst = cv2.filter2D(self.img, -1, kernel)
+        self.tmp = dst
+        self.show_dft()
+        cv2.imshow(self.test_winname, dst)
 
     def show_specturm(self, dft_result):
         """
@@ -317,8 +346,9 @@ class NoiseAnalyst():
 
         # normalize and display the results as rgb
         cv2.normalize(log_spectrum, log_spectrum, 0.0, 1.0, cv2.cv.CV_MINMAX)
-        plt.imshow(log_spectrum)
-        plt.show()
+        # plt.imshow(log_spectrum)
+        # plt.show()
+        cv2.imshow("spectrum", log_spectrum)
 
     def plot_vertically(self, xPos=1):
         """
@@ -361,5 +391,6 @@ if __name__ == "__main__":
     # na.get_sine_img(0.03,0,10,10)
     # na.get_vertical_sin_image(0.03,100,10)
     # na.plot_vertically(300)
-    na.remove_vertical_sin_noise()
+    # na.remove_vertical_sin_noise()
+    na.apply_gaussian_filter()
 
