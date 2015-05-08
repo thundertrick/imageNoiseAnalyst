@@ -20,6 +20,7 @@ from math import *
 import matplotlib.pylab as plt
 
 testPath = './test.bmp'
+bins = np.arange(256).reshape(256,1)
 
 
 def shift_dft(src, dst=None):
@@ -190,19 +191,40 @@ class NoiseAnalyst():
         # self.show(sinimg)
         return sinimg
 
-    def set_roi(self, showPatch=False):
+    def set_roi(self):
+        """
+        Display a image for ROI selection.
+        Press a to accept this ROI and self.img will
+        be OVERRIDE with the new image
+        """
         cv2.imshow(self.test_winname, self.img)
         cv2.setMouseCallback(self.test_winname, self.onmouse)
         while True:
             ch = cv2.waitKey()
             if ch == 27: # Esc
                 break
-            elif self.roiNeedUpadte:
+            elif self.roiNeedUpadte and ch == 97: # a
                 print "Accept ROI (minX, minY, maxX, maxY): " +  str(self.sel)
                 self.roiNeedUpadte = False
                 break
         cv2.destroyAllWindows()
-        self.img = self.img[self.sel[1]:self.sel[3],self.sel[0]:self.sel[2]]
+        self.img = self.img[self.sel[1]
+
+
+
+        :self.sel[3],self.sel[0]:self.sel[2]]
+
+    def hist_lines(self, im, showhist=False):
+        h = np.zeros((300,256,3))
+        if len(im.shape)!=2:
+            print "hist_lines applicable only for grayscale images"
+            #print "so converting image to grayscale for representation"
+            im = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
+        hist_item = cv2.calcHist([im],[0],None,[256],[0,256])
+        if showhist:
+            plt.plot(range(len(hist_item)), hist_item)
+            plt.show()
+        return hist_item
 
     # ---------------------------------------- User interface
     def show(self, img2show):
@@ -296,7 +318,8 @@ if __name__ == "__main__":
     na = NoiseAnalyst()
     # na.show(img2show=na.img)
     na.set_roi()
-    na.show_dft()
+    h = na.hist_lines(na.img, showhist=True)
+    # na.show_dft()
     # na.remove_sin_noise()
     # na.get_sine_img(0.03,0,10,10)
     # na.get_vertical_sin_image(0.03,100,10)
