@@ -7,7 +7,8 @@ Using OpenCV-Python to develop a toolkit for image noise analysing and help user
 2. Background noise analysing
 3. Sin wave noise (Done)
 4. ROI zooming (Done)
-5. histogram
+5. Histogram (Done)
+6. Entropy 
 
 ##Requirement
 1. Python 2.7 or higher ( Test with Python 2.7.8 )

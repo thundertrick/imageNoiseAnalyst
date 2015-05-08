@@ -69,6 +69,10 @@ def shift_dft(src, dst=None):
 
     return dst
 
+def draw_str(dst, (x, y), s):
+    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 0), thickness = 2, lineType=cv2.CV_AA)
+    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 255), lineType=cv2.CV_AA)
+
 
 class NoiseAnalyst():
 
@@ -97,6 +101,8 @@ class NoiseAnalyst():
         self.roiNeedUpadte = False
         self.dragStart = None
         self.fig = plt.figure()
+
+        self.tmp = None
     # ------------------------------------------- Processing
     def show_dft(self):
         """
@@ -165,6 +171,8 @@ class NoiseAnalyst():
             if ch == 27:  # Esc
                 break
             if ch == 97:
+                self.img = self.tmp
+                self.tmp = None
                 break
         cv2.destroyWindow(self.test_winname)
 
@@ -234,6 +242,7 @@ class NoiseAnalyst():
         for x,y in enumerate(hist):
             cv2.line(h,(x,0),(x,y),(255,255,255))
         y = np.flipud(h)
+        # y = cv2.cvtColor(y, cv2.COLOR_GRAY2BGR)
         if showhist:
             cv2.imshow("hist", y)
         return y
@@ -269,7 +278,14 @@ class NoiseAnalyst():
         sin_img = self.get_vertical_sin_image(
             A * 0.01, amplitude, phase * 0.017)
         dst = np.subtract(self.img, sin_img)
+        self.tmp = dst
         self.hist_lines(dst, showhist=True)
+        mi, ma, miloc, maloc = cv2.minMaxLoc(dst)
+        me, mestd = cv2.meanStdDev(dst)
+        s1 = '%d~%d' % (mi, ma)
+        s2 = '%.2f +- %.2f' % (me, mestd)
+        draw_str(dst, (10,20), s1)
+        draw_str(dst, (10,40), s2)
         cv2.imshow(self.test_winname, dst)
 
 
