@@ -3,10 +3,11 @@
 Using OpenCV-Python to develop a toolkit for image noise analysing and help user to find solutions. This program is set as a tool for image processing application in my lab.
 
 ##Target
-1. DFT2 analysing
+1. DFT2 analysing (Done)
 2. Background noise analysing
-3. Sin wave noise
-4. ROI zooming
+3. Sin wave noise (Done)
+4. ROI zooming (Done)
+5. histogram
 
 ##Requirement
 1. Python 2.7 or higher ( Test with Python 2.7.8 )

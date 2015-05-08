@@ -82,6 +82,7 @@ class NoiseAnalyst():
     # Public
     img = None
     test_winname = "test"
+    sel = None # ROI
 
     def __init__(self, filename=testPath):
         """
@@ -90,8 +91,11 @@ class NoiseAnalyst():
         self.img = cv2.imread(filename, False)
         print 'Image size: ' + str(self.img.shape)
 
+        self.roiNeedUpadte = False
+        self.dragStart = None
+
     # ------------------------------------------- Processing
-    def showDFT(self):
+    def show_dft(self):
         """
         Return the spectrum in log scale.
         """
@@ -186,8 +190,21 @@ class NoiseAnalyst():
         # self.show(sinimg)
         return sinimg
 
+    def set_roi(self, showPatch=False):
+        cv2.imshow(self.test_winname, self.img)
+        cv2.setMouseCallback(self.test_winname, self.onmouse)
+        while True:
+            ch = cv2.waitKey()
+            if ch == 27: # Esc
+                break
+            elif self.roiNeedUpadte:
+                print "Accept ROI (minX, minY, maxX, maxY): " +  str(self.sel)
+                self.roiNeedUpadte = False
+                break
+        cv2.destroyAllWindows()
+        self.img = self.img[self.sel[1]:self.sel[3],self.sel[0]:self.sel[2]]
 
-    # ---------------------------------------- Show & Plot
+    # ---------------------------------------- User interface
     def show(self, img2show):
         """
         Show a image.
@@ -197,7 +214,7 @@ class NoiseAnalyst():
             ch = cv2.waitKey()
             if ch == 27:  # Esc
                 break
-        cv2.destroyWindow(self.test_winname)
+        cv2.destroyAllWindows()
 
     def update_vertical_sine_win(self, dummy=None):
         """
@@ -255,12 +272,34 @@ class NoiseAnalyst():
         plt.plot(range(len(l)), l)
         plt.show()
 
+    def onmouse(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.dragStart = x, y
+            self.sel = 0,0,0,0
+        elif self.dragStart:
+            #print flags
+            if flags & cv2.EVENT_FLAG_LBUTTON:
+                minpos = min(self.dragStart[0], x), min(self.dragStart[1], y)
+                maxpos = max(self.dragStart[0], x), max(self.dragStart[1], y)
+                self.sel = minpos[0], minpos[1], maxpos[0], maxpos[1]
+                img = cv2.cvtColor(self.img, cv2.COLOR_GRAY2BGR)
+                cv2.rectangle(img, (self.sel[0], self.sel[1]), (self.sel[2], self.sel[3]), (0,255,255), 1)
+                cv2.imshow(self.test_winname, img)
+            else:
+                patch = self.img[self.sel[1]:self.sel[3], self.sel[0]:self.sel[2]]
+                cv2.imshow("patch", patch)
+                print "Press a to accept the ROI"
+                self.roiNeedUpadte = True
+                self.dragStart = None
+
 if __name__ == "__main__":
     na = NoiseAnalyst()
     # na.show(img2show=na.img)
-    # na.showDFT()
+    na.set_roi()
+    na.show_dft()
     # na.remove_sin_noise()
     # na.get_sine_img(0.03,0,10,10)
     # na.get_vertical_sin_image(0.03,100,10)
     # na.plot_vertically(300)
-    na.remove_vertical_sin_noise()
+    # na.remove_vertical_sin_noise()
+
