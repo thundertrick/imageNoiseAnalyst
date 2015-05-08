@@ -3,6 +3,7 @@
 # 2012-3-8
 # 2013-8-30 getGaborKernel
 # Eiichiro Momma
+# Modified by Xuyang Hu, 2015-5-7
 __author__ = 'momma'
 import numpy as np
 import cv2 as cv

@@ -14,4 +14,4 @@ Using OpenCV-Python to develop a toolkit for image noise analysing and help user
 3. matplotlib ( Test with matplolib 1.4.3)
 
 ##Thanks
-1. [dungtn/gaborfun](https://github.com/dungtn/gaborfun)
+1. [dungtn/gaborfun](https://github.com/dungtn/gaborfun) is a good tool on Gabor filter, though not suitable for the test image.
