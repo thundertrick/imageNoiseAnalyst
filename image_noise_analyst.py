@@ -83,7 +83,9 @@ class NoiseAnalyst():
     # Public
     img = None
     test_winname = "test"
+    ctrl_panel_winname = "control_panel"
     sel = None # ROI
+    fig = None
 
     def __init__(self, filename=testPath):
         """
@@ -94,7 +96,7 @@ class NoiseAnalyst():
 
         self.roiNeedUpadte = False
         self.dragStart = None
-
+        self.fig = plt.figure()
     # ------------------------------------------- Processing
     def show_dft(self):
         """
@@ -149,16 +151,20 @@ class NoiseAnalyst():
         h, w = self.img.shape[:2]
         small_img = cv2.resize(self.img, (w / 2, h / 2))
         cv2.imshow(self.test_winname, small_img)
-        cv2.createTrackbar("A*100", self.test_winname,
+        cv2.imshow(self.ctrl_panel_winname, np.zeros((100,600), np.uint8))
+        cv2.createTrackbar("A*100", self.ctrl_panel_winname,
                            A, 100, self.update_vertical_sine_win)
-        cv2.createTrackbar("amp", self.test_winname,
+        cv2.createTrackbar("amp", self.ctrl_panel_winname,
                            amp, 255, self.update_vertical_sine_win)
-        cv2.createTrackbar("pha", self.test_winname,
+        cv2.createTrackbar("pha", self.ctrl_panel_winname,
                            pha, 360, self.update_vertical_sine_win)
         self.update_vertical_sine_win()
+        print "Reducing sinusoidal noise, Press a to accspt"
         while True:
             ch = cv2.waitKey()
             if ch == 27:  # Esc
+                break
+            if ch == 97:
                 break
         cv2.destroyWindow(self.test_winname)
 
@@ -208,23 +214,35 @@ class NoiseAnalyst():
                 self.roiNeedUpadte = False
                 break
         cv2.destroyAllWindows()
-        self.img = self.img[self.sel[1]
-
-
-
-        :self.sel[3],self.sel[0]:self.sel[2]]
+        self.img = self.img[self.sel[1]:self.sel[3],self.sel[0]:self.sel[2]]
 
     def hist_lines(self, im, showhist=False):
+        """
+        Calculate histogram of given image.
+        plot the histogram if showhist==True.
+
+        @return     hist_item       histogram in a 2d image.
+        """
         h = np.zeros((300,256,3))
         if len(im.shape)!=2:
             print "hist_lines applicable only for grayscale images"
             #print "so converting image to grayscale for representation"
             im = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
         hist_item = cv2.calcHist([im],[0],None,[256],[0,256])
+        cv2.normalize(hist_item,hist_item,0,255,cv2.NORM_MINMAX)
+        hist=np.int32(np.around(hist_item))
+        for x,y in enumerate(hist):
+            cv2.line(h,(x,0),(x,y),(255,255,255))
+        y = np.flipud(h)
         if showhist:
-            plt.plot(range(len(hist_item)), hist_item)
-            plt.show()
-        return hist_item
+            cv2.imshow("hist", y)
+        return y
+
+        # if showhist:
+        #     plt.clf()
+        #     plt.plot(range(len(hist_item)), hist_item)
+        #     self.fig.canvas.draw()
+        # return hist_item
 
     # ---------------------------------------- User interface
     def show(self, img2show):
@@ -243,14 +261,15 @@ class NoiseAnalyst():
         Update output image with trackbar.
         """
         A = cv2.getTrackbarPos("A*100",
-                               self.test_winname)
+                               self.ctrl_panel_winname)
         amplitude = cv2.getTrackbarPos("amp",
-                                       self.test_winname)
+                                       self.ctrl_panel_winname)
         phase = cv2.getTrackbarPos("pha",
-                                   self.test_winname)
+                                   self.ctrl_panel_winname)
         sin_img = self.get_vertical_sin_image(
             A * 0.01, amplitude, phase * 0.017)
         dst = np.subtract(self.img, sin_img)
+        self.hist_lines(dst, showhist=True)
         cv2.imshow(self.test_winname, dst)
 
 
@@ -309,6 +328,8 @@ class NoiseAnalyst():
                 cv2.imshow(self.test_winname, img)
             else:
                 patch = self.img[self.sel[1]:self.sel[3], self.sel[0]:self.sel[2]]
+                self.hist_lines(patch, showhist=True)
+                cv2.destroyWindow("patch")
                 cv2.imshow("patch", patch)
                 print "Press a to accept the ROI"
                 self.roiNeedUpadte = True
@@ -318,11 +339,11 @@ if __name__ == "__main__":
     na = NoiseAnalyst()
     # na.show(img2show=na.img)
     na.set_roi()
-    h = na.hist_lines(na.img, showhist=True)
+    # h = na.hist_lines(na.img, showhist=True)
     # na.show_dft()
     # na.remove_sin_noise()
     # na.get_sine_img(0.03,0,10,10)
     # na.get_vertical_sin_image(0.03,100,10)
     # na.plot_vertically(300)
-    # na.remove_vertical_sin_noise()
+    na.remove_vertical_sin_noise()
 
