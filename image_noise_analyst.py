@@ -19,55 +19,9 @@ import numpy as np
 from math import *
 import matplotlib.pylab as plt
 
-testPath = './test.bmp'
+testPath = 'K626_Requiem_Mozart.jpg'#./test.bmp'
 bins = np.arange(256).reshape(256,1)
 
-
-def shift_dft(src, dst=None):
-    '''
-        Rearrange the quadrants of Fourier image so that the origin is at
-        the image center. Swaps quadrant 1 with 3, and 2 with 4.
-
-        src and dst arrays must be equal size & type
-    '''
-
-    if dst is None:
-        dst = np.empty(src.shape, src.dtype)
-    elif src.shape != dst.shape:
-        raise ValueError("src and dst must have equal sizes")
-    elif src.dtype != dst.dtype:
-        raise TypeError("src and dst must have equal types")
-
-    if src is dst:
-        ret = np.empty(src.shape, src.dtype)
-    else:
-        ret = dst
-
-    h, w = src.shape[:2]
-
-    cx1 = cx2 = w / 2
-    cy1 = cy2 = h / 2
-
-    # if the size is odd, then adjust the bottom/right quadrants
-    if w % 2 != 0:
-        cx2 += 1
-    if h % 2 != 0:
-        cy2 += 1
-
-    # swap quadrants
-
-    # swap q1 and q3
-    ret[h - cy1:, w - cx1:] = src[0:cy1, 0:cx1]   # q1 -> q3
-    ret[0:cy2, 0:cx2] = src[h - cy2:, w - cx2:]   # q3 -> q1
-
-    # swap q2 and q4
-    ret[0:cy2, w - cx2:] = src[h - cy2:, 0:cx2]   # q2 -> q4
-    ret[h - cy1:, 0:cx1] = src[0:cy1, w - cx1:]   # q4 -> q2
-
-    if src is dst:
-        dst[:, :] = ret
-
-    return dst
 
 def draw_str(dst, (x, y), s):
     cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0, 0), thickness = 2, lineType=cv2.CV_AA)
@@ -86,10 +40,14 @@ class NoiseAnalyst():
 
     # Public
     img = None
+
+    # Windows' name
     test_winname = "test"
     ctrl_panel_winname = "control_panel"
+    spectrum_winname = "spectrum"
+    hist_winname = "histogram"
+
     sel = None # ROI
-    fig = None
 
     def __init__(self, filename=testPath):
         """
@@ -100,27 +58,24 @@ class NoiseAnalyst():
 
         self.roiNeedUpadte = False
         self.dragStart = None
-        self.fig = plt.figure()
 
+        # save images temporarily
         self.tmp = self.img
+
+        # DFT result fro self.img
+        self.dft4img = None
     # ------------------------------------- Image processing
-    def show_dft(self):
+    def get_dft(self, img2dft=None, showdft=False):
         """
         Return the spectrum in log scale.
         """
-        h, w = self.tmp.shape[:2]
-        realInput = self.tmp.astype(np.float64)
-        # perform an optimally sized dft
-        dft_M = cv2.getOptimalDFTSize(w)
-        dft_N = cv2.getOptimalDFTSize(h)
-        # copy A to dft_A and pad dft_A with zeros
-        dft_A = np.zeros((dft_N, dft_M, 2), dtype=np.float64)
-        dft_A[:h, :w, 0] = realInput
-        # no need to pad bottom part of dft_A with zeros because of
-        # use of nonzeroRows parameter in cv2.dft()
-        cv2.dft(dft_A, dst=dft_A, nonzeroRows=h)
+        if img2dft == None:
+            img2dft = self.img
+        dft_A = cv2.dft(np.float32(self.img),flags = cv2.DFT_COMPLEX_OUTPUT|cv2.DFT_SCALE)
+        dft_A = np.fft.fftshift(dft_A)
 
-        self.show_specturm(dft_A)
+        if showdft:
+            self.show_specturm(dft_A)
         return dft_A
 
     def remove_sin_noise(self):
@@ -195,6 +150,49 @@ class NoiseAnalyst():
                 break
         cv2.destroyAllWindows()
 
+    def apply_butterworth_filter(self):
+        """
+        Apply Butterworth low pass filter.
+        The code is derived from Paragraph 4.8.2, 
+        Butterworth Lowpass Filters, 
+        "Digital image Processing (3rd edition)" by R.C. Gonzalez.
+        """
+        max_ksize = max(self.img.shape[0], self.img.shape[1])
+        self.dft4img = self.get_dft(self.img, showdft=True)
+        cv2.imshow(self.test_winname, self.img)
+        cv2.imshow(self.ctrl_panel_winname, np.zeros((100, 600), np.uint8))
+        cv2.createTrackbar(
+            "bw_stopband", self.ctrl_panel_winname, 3, (max_ksize - 1) / 2, self.update_butterworth_win)
+        self.update_butterworth_win()
+        print "Reducing high frequency noise, Press a to accept"
+        while True:
+            ch = cv2.waitKey()
+            if ch == 27:
+                break
+            if ch == 97:
+                self.img = self.tmp
+                break
+        cv2.destroyAllWindows()
+
+    def get_butterworth_filter(self, stopband=10, order=3, showdft=False):
+        """
+        Get Butterworth filter in frequency domain.
+        """
+        h, w = self.dft4img.shape[0], self.dft4img.shape[1]
+        P = h/2
+        Q = w/2
+        D2 = stopband**2
+        dst = np.zeros((h, w, 2), np.float64)
+        for i in range(h):
+            for j in range(w):
+                r2 = float((i-P)**2+(j-Q)**2)
+                if r2 == 0:
+                    r2 = 1.0
+                dst[i,j] = 1/(1+(r2/D2)**order)
+        dst = np.float64(dst)
+        if showdft:
+            cv2.imshow("butterworth", cv2.magnitude(dst[:,:,0], dst[:,:,1]))
+        return dst
 
     def get_sine_img(self, A, B, amp, pha):
         """
@@ -208,7 +206,6 @@ class NoiseAnalyst():
             for j in range(w):
                 sinimg[i, j] = np.uint8(amp * (sin(A * i + B * j + pha) + 1))
         return sinimg
-
 
     def get_vertical_sin_image(self, A, amp, pha):
         """
@@ -265,14 +262,8 @@ class NoiseAnalyst():
         y = np.flipud(h)
         # y = cv2.cvtColor(y, cv2.COLOR_GRAY2BGR)
         if showhist:
-            cv2.imshow("hist", y)
+            cv2.imshow(self.hist_winname, y)
         return y
-
-        # if showhist:
-        #     plt.clf()
-        #     plt.plot(range(len(hist_item)), hist_item)
-        #     self.fig.canvas.draw()
-        # return hist_item
 
     # ---------------------------------------- User interface
     def show(self, img2show):
@@ -319,12 +310,33 @@ class NoiseAnalyst():
         pass
 
     def update_gaussian_filter_win(self, dummy=None):
+        """
+        Update Gaussian Kernel param and the result image.
+        """
         ks = cv2.getTrackbarPos("kize=2n+1:",
                                 self.ctrl_panel_winname)
         kernel = cv2.getGaussianKernel(ks*2+1, 0)
         dst = cv2.filter2D(self.img, -1, kernel)
         self.tmp = dst
-        self.show_dft()
+        self.get_dft()
+        cv2.imshow(self.test_winname, dst)
+
+    def update_butterworth_win(self, dummy=None):
+        """
+        Update Butterworth filter param and the result image.
+        """
+        sb = cv2.getTrackbarPos("bw_stopband",
+                                self.ctrl_panel_winname)
+        if sb == 0:
+            sb = 1
+            print "Stopband should be more than 0. Reset to 1."
+        bw_filter = self.get_butterworth_filter(stopband=sb, showdft=True)
+        dst_complex = bw_filter * self.dft4img#cv2.multiply(self.dft4img, bw_filter)
+        dst_complex = cv2.idft(np.fft.ifftshift(dst_complex))
+        dst = np.uint8(cv2.magnitude(dst_complex[:,:,0], dst_complex[:,:,1]))
+        self.tmp = dst
+        self.get_dft(self.tmp, showdft=True)
+        self.hist_lines(dst, showhist=True)
         cv2.imshow(self.test_winname, dst)
 
     def show_specturm(self, dft_result):
@@ -342,13 +354,13 @@ class NoiseAnalyst():
 
         # Rearrange the quadrants of Fourier image so that the origin is at
         # the image center
-        shift_dft(log_spectrum, log_spectrum)
+        # shift_dft(log_spectrum, log_spectrum)
 
         # normalize and display the results as rgb
         cv2.normalize(log_spectrum, log_spectrum, 0.0, 1.0, cv2.cv.CV_MINMAX)
         # plt.imshow(log_spectrum)
         # plt.show()
-        cv2.imshow("spectrum", log_spectrum)
+        cv2.imshow(self.spectrum_winname, log_spectrum)
 
     def plot_vertically(self, xPos=1):
         """
@@ -360,6 +372,10 @@ class NoiseAnalyst():
         plt.show()
 
     def onmouse(self, event, x, y, flags, param):
+        """
+        Mouse callback when mouse event detected in the window.
+        Note: This function is only used for ROI setting.
+        """
         if event == cv2.EVENT_LBUTTONDOWN:
             self.dragStart = x, y
             self.sel = 0,0,0,0
@@ -377,20 +393,27 @@ class NoiseAnalyst():
                 self.hist_lines(patch, showhist=True)
                 cv2.destroyWindow("patch")
                 cv2.imshow("patch", patch)
+                self.get_dft(img2dft=patch, showdft=True)
                 print "Press a to accept the ROI"
                 self.roiNeedUpadte = True
                 self.dragStart = None
 
 if __name__ == "__main__":
     na = NoiseAnalyst()
-    # na.show(img2show=na.img)
+
+    # ROI test
     na.set_roi()
-    # h = na.hist_lines(na.img, showhist=True)
-    # na.show_dft()
-    # na.remove_sin_noise()
-    # na.get_sine_img(0.03,0,10,10)
-    # na.get_vertical_sin_image(0.03,100,10)
-    # na.plot_vertically(300)
-    # na.remove_vertical_sin_noise()
-    na.apply_gaussian_filter()
+
+    # Butterworth filter test
+    # Recommand to test ROI first
+    fshift = na.get_dft()
+    na.apply_butterworth_filter()
+
+    # Gaussian filter test
+    # Recommand to test without butterworth test
+    # na.apply_gaussian_filter()
+
+    # Remove Vertical sine wave noise
+    # Note: Butterworth filter performs better in our case
+    # na.remove_vertical_sin_noise
 

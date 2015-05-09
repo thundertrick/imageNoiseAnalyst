@@ -20,6 +20,10 @@ $RECYCLE.BIN/
 # Python Binary
 *.pyc
 
+# other files
+*.cpp
+*.jpg
+
 # =========================
 # Operating System Files
 # =========================
