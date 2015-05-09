@@ -19,7 +19,7 @@ import numpy as np
 from math import *
 import matplotlib.pylab as plt
 
-testPath = 'K626_Requiem_Mozart.jpg'#./test.bmp'
+testPath = './test.bmp'
 bins = np.arange(256).reshape(256,1)
 
 
@@ -162,7 +162,7 @@ class NoiseAnalyst():
         cv2.imshow(self.test_winname, self.img)
         cv2.imshow(self.ctrl_panel_winname, np.zeros((100, 600), np.uint8))
         cv2.createTrackbar(
-            "bw_stopband", self.ctrl_panel_winname, 3, (max_ksize - 1) / 2, self.update_butterworth_win)
+            "stopband**2", self.ctrl_panel_winname, 3, (max_ksize - 1) / 2, self.update_butterworth_win)
         self.update_butterworth_win()
         print "Reducing high frequency noise, Press a to accept"
         while True:
@@ -174,21 +174,20 @@ class NoiseAnalyst():
                 break
         cv2.destroyAllWindows()
 
-    def get_butterworth_filter(self, stopband=10, order=3, showdft=False):
+    def get_butterworth_filter(self, stopband2=10, order=3, showdft=False):
         """
         Get Butterworth filter in frequency domain.
         """
         h, w = self.dft4img.shape[0], self.dft4img.shape[1]
         P = h/2
         Q = w/2
-        D2 = stopband**2
         dst = np.zeros((h, w, 2), np.float64)
         for i in range(h):
             for j in range(w):
                 r2 = float((i-P)**2+(j-Q)**2)
                 if r2 == 0:
                     r2 = 1.0
-                dst[i,j] = 1/(1+(r2/D2)**order)
+                dst[i,j] = 1/(1+(r2/stopband2)**order)
         dst = np.float64(dst)
         if showdft:
             cv2.imshow("butterworth", cv2.magnitude(dst[:,:,0], dst[:,:,1]))
@@ -325,7 +324,7 @@ class NoiseAnalyst():
         """
         Update Butterworth filter param and the result image.
         """
-        sb = cv2.getTrackbarPos("bw_stopband",
+        sb = cv2.getTrackbarPos("stopband**2",
                                 self.ctrl_panel_winname)
         if sb == 0:
             sb = 1
