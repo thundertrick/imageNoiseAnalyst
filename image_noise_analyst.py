@@ -171,6 +171,8 @@ class NoiseAnalyst():
                 break
             if ch == 97:
                 self.img = self.tmp
+                plt.imshow(self.img)
+                plt.show()
                 break
         cv2.destroyAllWindows()
 
@@ -329,7 +331,7 @@ class NoiseAnalyst():
         if sb == 0:
             sb = 1
             print "Stopband should be more than 0. Reset to 1."
-        bw_filter = self.get_butterworth_filter(stopband=sb, showdft=True)
+        bw_filter = self.get_butterworth_filter(stopband2=sb, showdft=True)
         dst_complex = bw_filter * self.dft4img#cv2.multiply(self.dft4img, bw_filter)
         dst_complex = cv2.idft(np.fft.ifftshift(dst_complex))
         dst = np.uint8(cv2.magnitude(dst_complex[:,:,0], dst_complex[:,:,1]))
@@ -401,7 +403,7 @@ if __name__ == "__main__":
     na = NoiseAnalyst()
 
     # ROI test
-    na.set_roi()
+    # na.set_roi()
 
     # Butterworth filter test
     # Recommand to test ROI first
